@@ -20,7 +20,7 @@ mvn -version
 sudo mkdir /opt/tomcat
 cd /tmp
 #you can choose either the binary found in repository or validate if the link to apache site is still working...
-curl https://raw.githubusercontent.com/giraffeman123/ec2-with-cwagent/java-spring/tomcat-binary/apache-tomcat-10.1.25.zip --output apache-tomcat-10.1.25.zip
+curl https://raw.githubusercontent.com/giraffeman123/flights-stackoverflow-answers/main/infra-resources/apache-tomcat-10.1.25.zip --output apache-tomcat-10.1.25.zip
 sudo unzip apache-tomcat-10.1.25.zip
 sudo mv apache-tomcat-10.1.25/* /opt/tomcat
 
