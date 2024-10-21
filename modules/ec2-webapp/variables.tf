@@ -1,66 +1,40 @@
-variable "environment" {
-    type = string 
-    default = "dev"
+variable "mandatory_tags" {
+  type = object({})
 }
 
-variable "application" {
-    type = string 
-    default = "merge-sort"
+variable "name" {
+  type = string
 }
 
 variable "app_port" {
-    type = string 
-    default = "8080"
+  type = number
 }
 
-
 variable "vpc_id" {
-    type = string 
-    default = ""
+  type    = string
+  default = ""
 }
 
 variable "subnet_id" {
-    type = string
-    default = ""
-}
-
-variable "ec2_ami_id" {
-    type = string
-    default = "ami-024e6efaf93d85776"
+  type    = string
+  default = ""
 }
 
 variable "ec2_instance_type" {
-    type = string
-    default = "t2.micro"
+  type    = string
+  default = "t2.micro"
 }
 
 variable "ec2_key_name" {
-    type = string
-    default = "terraform-test"
+  type = string
 }
 
 variable "ec2_sg_ingress_rules" {
-    type = map(object({
-        description = string
-        from_port = number
-        to_port = number
-        protocol = string
-        cidr_blocks = list(string)
-    }))
-    default = {
-        "http port" = {
-            description = "HTTP port"
-            from_port   = 8080
-            to_port     = 8080
-            protocol    = "tcp"
-            cidr_blocks = ["0.0.0.0/0"]      
-        },        
-        "ssh port" = {
-            description = "SSH port"
-            from_port   = 22
-            to_port     = 22
-            protocol    = "tcp"
-            cidr_blocks = ["0.0.0.0/0"]
-        }        
-    }
+  type = map(object({
+    description = string
+    from_port   = number
+    to_port     = number
+    protocol    = string
+    cidr_blocks = list(string)
+  }))
 }

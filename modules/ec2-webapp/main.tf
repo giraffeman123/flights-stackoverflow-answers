@@ -1,5 +1,15 @@
+data "aws_caller_identity" "current" {}
+
+data "aws_region" "current" {}
+
+resource "random_string" "random" {
+  length  = 8
+  special = false
+  lower   = true
+}
+
 resource "aws_iam_role" "this" {
-  name = "${var.application}-EC2-Role"
+  name = "${var.name}-EC2-Role"
   path = "/"
 
   assume_role_policy = jsonencode(
@@ -26,7 +36,7 @@ resource "aws_iam_role_policy_attachment" "this" {
 }
 
 resource "aws_iam_role_policy" "this" {
-  name = "${var.application}-EC2-Inline-Policy"
+  name = "${var.name}-EC2-Inline-Policy"
   role = aws_iam_role.this.id
   policy = jsonencode(
     {
@@ -37,7 +47,7 @@ resource "aws_iam_role_policy" "this" {
           "Action" : [
             "ssm:GetParameter"
           ],
-          "Resource" : "*"
+          "Resource" : "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/cloudwatch-agent/${var.name}-config"
         }
       ]
     }
@@ -45,13 +55,13 @@ resource "aws_iam_role_policy" "this" {
 }
 
 resource "aws_iam_instance_profile" "this" {
-  name = "${var.application}-EC2-Profile"
+  name = "${var.name}-EC2-Profile"
   role = aws_iam_role.this.name
 }
 
 resource "aws_security_group" "ec2_sg" {
-  vpc_id = var.vpc_id
-  name        = "${var.application}-sg"
+  vpc_id      = var.vpc_id
+  name        = "${var.name}-sg"
   description = "Acceso por parte de maquina"
 
   dynamic "ingress" {
@@ -61,7 +71,7 @@ resource "aws_security_group" "ec2_sg" {
       from_port   = ingress.value.from_port
       to_port     = ingress.value.to_port
       protocol    = ingress.value.protocol
-      cidr_blocks = ingress.value.cidr_blocks      
+      cidr_blocks = ingress.value.cidr_blocks
     }
   }
 
@@ -70,50 +80,81 @@ resource "aws_security_group" "ec2_sg" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
-  } 
-
-  tags = {
-    Name = "${var.application}-${var.environment}-ec2-sg"
   }
+
+  tags = merge(
+    var.mandatory_tags,
+    {
+      Name = "${var.name}-ec2-sg"
+    }
+  )
 }
 
 resource "aws_network_interface" "ec2_eni" {
   security_groups = [aws_security_group.ec2_sg.id]
   # <--- HAS TO BE ON THE SAME AVAILABILITY ZONE AS aws_ebs_volume.availability_zone --->
-  subnet_id = var.subnet_id  
-  tags = {
-    Name = "${var.application}-${var.environment}-ec2_network_interface"
-  }
+  subnet_id = var.subnet_id
+  tags = merge(
+    var.mandatory_tags,
+    {
+      Name = "${var.name}-${random_string.random.result}-ec2-eni"
+    }
+  )
 }
 
 resource "aws_ssm_parameter" "cw_agent" {
   description = "Cloudwatch agent config to configure custom log"
-  name        = "/cloudwatch-agent/${var.application}-config"
+  name        = "/cloudwatch-agent/${var.name}-config"
   type        = "String"
-  value       = "${file("${path.module}/${local.cw_agent_policy_filepath}")}"
+  value       = file("${path.module}/${local.cw_agent_policy_filepath}")
   //value       = file("cw_agent_config.json")
+  tags = var.mandatory_tags
 }
 
 data "template_file" "ec2_user_data" {
-    template = "${file("${path.module}/${local.ec2_user_data_filepath}")}"
-    vars = {
-        app_port = var.app_port
-        ssm_cloudwatch_config = aws_ssm_parameter.cw_agent.name
-    }  
+  template = file("${path.module}/${local.ec2_user_data_filepath}")
+  vars = {
+    app_port              = var.app_port
+    ssm_cloudwatch_config = aws_ssm_parameter.cw_agent.name
+  }
 }
+
+data "aws_ami" "ubuntu" {
+  owners      = ["amazon"]
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "root-device-type"
+    values = ["ebs"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
 
 resource "aws_instance" "ec2_instance" {
   # <--- CURRENT AMI IS Ubuntu Server 22.04 LTS [ami-024e6efaf93d85776] --->
-  ami                    = var.ec2_ami_id    
-  instance_type          = var.ec2_instance_type 
-  iam_instance_profile   = aws_iam_instance_profile.this.name
+  ami                  = data.aws_ami.ubuntu.id
+  instance_type        = var.ec2_instance_type
+  iam_instance_profile = aws_iam_instance_profile.this.name
 
   # <--- CREATE KEY-PAIR IN AWS CONSOLE THEN REFERENCE NAME OF IT HERE --->
-  key_name = var.ec2_key_name
-  user_data = "${base64encode(data.template_file.ec2_user_data.rendered)}"
-  tags = {
-	  Name = "${var.application}-${var.environment}-node"			
-  }
+  key_name  = var.ec2_key_name
+  user_data = base64encode(data.template_file.ec2_user_data.rendered)
+  tags = merge(
+    var.mandatory_tags,
+    {
+      Name = "${var.name}-${random_string.random.result}-node"
+    }
+  )
 
   network_interface {
     network_interface_id = aws_network_interface.ec2_eni.id
@@ -126,9 +167,12 @@ resource "aws_instance" "ec2_instance" {
     volume_type           = "gp2"
     encrypted             = false
     delete_on_termination = true
-    tags = {
-	    Name = "${var.environment}-demo_root_ebs_block_device"			
-    }
+    tags = merge(
+      var.mandatory_tags,
+      {
+        Name = "${var.name}-${random_string.random.result}-root-ebs"
+      }
+    )
   }
 
   # <--- [OPTIONAL] THIS IS AN EXTERNAL DATA DISK --->
@@ -139,9 +183,12 @@ resource "aws_instance" "ec2_instance" {
     volume_type = "gp2"    
     encrypted = false
     delete_on_termination = true
-    tags = {
-	    Name = "${var.application}-${var.environment}-demo_data_ebs_block_device"			
-    }
+    tags = merge(
+      var.mandatory_tags,
+      {        
+        Name = "${var.name}-${random_string.random.result}-data-ebs"
+      }      
+    )   
     #... other arguments ...
   }  
   */
@@ -155,9 +202,12 @@ resource "aws_ebs_volume" "demo_ebs_volume" {
   size = 4 
   encrypted = false
   type = "gp2"
-  tags = {
-    Name = "${var.application}-${var.environment}-demo_ebs_volume"
-  }
+  tags = merge(
+    var.mandatory_tags,
+    {
+      Name = "${var.name}-${random_string.random.result}-data-ebs"	
+    }      
+  ) 
 
 }
 
