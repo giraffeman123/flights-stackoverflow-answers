@@ -9,7 +9,7 @@ resource "random_string" "random" {
 }
 
 resource "aws_iam_role" "this" {
-  name = "${var.name}-EC2-Role"
+  name = "${var.name}-EC2-Role-${var.mandatory_tags.Environment}"
   path = "/"
 
   assume_role_policy = jsonencode(
@@ -36,7 +36,7 @@ resource "aws_iam_role_policy_attachment" "this" {
 }
 
 resource "aws_iam_role_policy" "this" {
-  name = "${var.name}-EC2-Inline-Policy"
+  name = "${var.name}-EC2-Inline-Policy-${var.mandatory_tags.Environment}"
   role = aws_iam_role.this.id
   policy = jsonencode(
     {
@@ -47,7 +47,7 @@ resource "aws_iam_role_policy" "this" {
           "Action" : [
             "ssm:GetParameter"
           ],
-          "Resource" : "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/cloudwatch-agent/${var.name}-config"
+          "Resource" : "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/cloudwatch-agent/${var.mandatory_tags.Environment}/${var.name}-config"
         }
       ]
     }
@@ -55,13 +55,13 @@ resource "aws_iam_role_policy" "this" {
 }
 
 resource "aws_iam_instance_profile" "this" {
-  name = "${var.name}-EC2-Profile"
+  name = "${var.name}-EC2-Profile-${var.mandatory_tags.Environment}"
   role = aws_iam_role.this.name
 }
 
 resource "aws_security_group" "ec2_sg" {
   vpc_id      = var.vpc_id
-  name        = "${var.name}-sg"
+  name        = "${var.name}-${var.mandatory_tags.Environment}-sg"
   description = "Acceso por parte de maquina"
 
   dynamic "ingress" {
@@ -85,7 +85,7 @@ resource "aws_security_group" "ec2_sg" {
   tags = merge(
     var.mandatory_tags,
     {
-      Name = "${var.name}-ec2-sg"
+      Name = "${var.name}-${var.mandatory_tags.Environment}-sg"
     }
   )
 }
@@ -97,14 +97,14 @@ resource "aws_network_interface" "ec2_eni" {
   tags = merge(
     var.mandatory_tags,
     {
-      Name = "${var.name}-${random_string.random.result}-ec2-eni"
+      Name = "${var.name}-${random_string.random.result}-ec2-eni-${var.mandatory_tags.Environment}"
     }
   )
 }
 
 resource "aws_ssm_parameter" "cw_agent" {
   description = "Cloudwatch agent config to configure custom log"
-  name        = "/cloudwatch-agent/${var.name}-config"
+  name        = "/cloudwatch-agent/${var.mandatory_tags.Environment}/${var.name}-config"
   type        = "String"
   value       = file("${path.module}/${local.cw_agent_policy_filepath}")
   //value       = file("cw_agent_config.json")
@@ -151,7 +151,7 @@ resource "aws_instance" "ec2_instance" {
   tags = merge(
     var.mandatory_tags,
     {
-      Name = "${var.name}-${random_string.random.result}-node"
+      Name = "${var.name}-${random_string.random.result}-node-${var.mandatory_tags.Environment}"
     }
   )
 
@@ -169,7 +169,7 @@ resource "aws_instance" "ec2_instance" {
     tags = merge(
       var.mandatory_tags,
       {
-        Name = "${var.name}-${random_string.random.result}-root-ebs"
+        Name = "${var.name}-${random_string.random.result}-root-ebs-${var.mandatory_tags.Environment}"
       }
     )
   }
@@ -185,7 +185,7 @@ resource "aws_instance" "ec2_instance" {
     tags = merge(
       var.mandatory_tags,
       {        
-        Name = "${var.name}-${random_string.random.result}-data-ebs"
+        Name = "${var.name}-${random_string.random.result}-data-ebs-${var.mandatory_tags.Environment}"
       }      
     )    
     #... other arguments ...
@@ -204,7 +204,7 @@ resource "aws_ebs_volume" "demo_ebs_volume" {
   tags = merge(
     var.mandatory_tags,
     {
-      Name = "${var.name}-${random_string.random.result}-data-ebs"	
+      Name = "${var.name}-${random_string.random.result}-data-ebs-${var.mandatory_tags.Environment}"	
     }      
   )  
 

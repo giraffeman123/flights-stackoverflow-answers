@@ -1,6 +1,4 @@
-variable "mandatory_tags" {
-  type = object({})
-}
+variable "mandatory_tags" {}
 
 variable "name" {
   type = string

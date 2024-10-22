@@ -14,7 +14,7 @@ module "tags" {
 module "ec2_api" {
   source            = "./modules/ec2-api"
   mandatory_tags    = module.tags.mandatory_tags
-  name              = "fsa-api-${module.tags.mandatory_tags.Environment}"
+  name              = "fsa-api"
   app_port          = 3000
   vpc_id            = var.vpc_id
   subnet_id         = var.subnet_id
@@ -41,7 +41,7 @@ module "ec2_api" {
 module "spring_api" {
   source            = "./modules/ec2-webapp"
   mandatory_tags    = module.tags.mandatory_tags
-  name              = "fsa-webapp-${module.tags.mandatory_tags.Environment}"
+  name              = "fsa-webapp"
   app_port          = 8080
   vpc_id            = var.vpc_id
   subnet_id         = var.subnet_id
