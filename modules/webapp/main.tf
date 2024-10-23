@@ -59,20 +59,26 @@ resource "aws_iam_instance_profile" "this" {
   role = aws_iam_role.this.name
 }
 
+
 resource "aws_security_group" "ec2_sg" {
   vpc_id      = var.vpc_id
   name        = "${var.name}-${var.mandatory_tags.Environment}-sg"
-  description = "Acceso por parte de maquina"
+  description = "App security group"
 
-  dynamic "ingress" {
-    for_each = var.ec2_sg_ingress_rules
-    content {
-      description = ingress.value.description
-      from_port   = ingress.value.from_port
-      to_port     = ingress.value.to_port
-      protocol    = ingress.value.protocol
-      cidr_blocks = ingress.value.cidr_blocks
-    }
+  ingress {
+    description     = "App port"
+    from_port       = var.app_port
+    to_port         = var.app_port
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb_sg.id]
+  }
+
+  ingress {
+    description = "SSH port"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -90,18 +96,6 @@ resource "aws_security_group" "ec2_sg" {
   )
 }
 
-resource "aws_network_interface" "ec2_eni" {
-  security_groups = [aws_security_group.ec2_sg.id]
-  # <--- HAS TO BE ON THE SAME AVAILABILITY ZONE AS aws_ebs_volume.availability_zone --->
-  subnet_id = var.subnet_id
-  tags = merge(
-    var.mandatory_tags,
-    {
-      Name = "${var.name}-${random_string.random.result}-ec2-eni-${var.mandatory_tags.Environment}"
-    }
-  )
-}
-
 resource "aws_ssm_parameter" "cw_agent" {
   description = "Cloudwatch agent config to configure custom log"
   name        = "/cloudwatch-agent/${var.mandatory_tags.Environment}/${var.name}-config"
@@ -115,6 +109,7 @@ data "template_file" "ec2_user_data" {
   template = file("${path.module}/${local.ec2_user_data_filepath}")
   vars = {
     app_port              = var.app_port
+    fsa_api_base_url      = var.fsa_api_base_url
     ssm_cloudwatch_config = aws_ssm_parameter.cw_agent.name
   }
 }
@@ -139,80 +134,70 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-resource "aws_instance" "ec2_instance" {
-  # <--- CURRENT AMI IS Ubuntu Server 22.04 LTS [ami-024e6efaf93d85776] --->
-  ami                  = data.aws_ami.ubuntu.id
-  instance_type        = var.ec2_instance_type
-  iam_instance_profile = aws_iam_instance_profile.this.name
+resource "aws_launch_template" "app_lt" {
+  name_prefix   = "${var.name}-lt-${var.mandatory_tags.Environment}-${random_string.random.result}"
+  image_id      = data.aws_ami.ubuntu.id
+  instance_type = var.ec2_instance_type
+  key_name      = var.ec2_key_name
 
-  # <--- CREATE KEY-PAIR IN AWS CONSOLE THEN REFERENCE NAME OF IT HERE --->
-  key_name  = var.ec2_key_name
+  iam_instance_profile {
+    name = aws_iam_instance_profile.this.name
+  }
+
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups             = [aws_security_group.ec2_sg.id]
+  }
+
   user_data = base64encode(data.template_file.ec2_user_data.rendered)
   tags = merge(
     var.mandatory_tags,
     {
-      Name = "${var.name}-${random_string.random.result}-node-${var.mandatory_tags.Environment}"
+      Name = "${var.name}-lt-${var.mandatory_tags.Environment}-${random_string.random.result}"
     }
   )
+}
 
-  network_interface {
-    network_interface_id = aws_network_interface.ec2_eni.id
-    device_index         = 0
+resource "aws_autoscaling_group" "app_asg" {
+  name                = "${aws_launch_template.app_lt.name}-asg"
+  min_size            = 2
+  desired_capacity    = 3
+  max_size            = 4
+  vpc_zone_identifier = var.private_subnets_ids
+
+  launch_template {
+    id      = aws_launch_template.app_lt.id
+    version = aws_launch_template.app_lt.latest_version
   }
 
-  # <--- THIS IS THE ROOT DISK --->
-  root_block_device {
-    volume_size           = "8"
-    volume_type           = "gp2"
-    encrypted             = false
-    delete_on_termination = true
-    tags = merge(
-      var.mandatory_tags,
-      {
-        Name = "${var.name}-${random_string.random.result}-root-ebs-${var.mandatory_tags.Environment}"
-      }
-    )
+  lifecycle {
+    ignore_changes = [load_balancers, target_group_arns]
   }
 
-  # <--- [OPTIONAL] THIS IS AN EXTERNAL DATA DISK --->
-  /*
-  ebs_block_device {
-    device_name = "/dev/xvda"
-    volume_size = 1
-    volume_type = "gp2"    
-    encrypted = false
-    delete_on_termination = true
-    tags = merge(
-      var.mandatory_tags,
-      {        
-        Name = "${var.name}-${random_string.random.result}-data-ebs-${var.mandatory_tags.Environment}"
-      }      
-    )    
-    #... other arguments ...
-  }  
-  */
+  # tag {
+  #   key                 = "Name"
+  #   value               = "asg-${var.application}-${var.environment}"
+  #   propagate_at_launch = true
+  # }
 }
 
-/*
-# <--- [OPTIONAL] THIS IS AN EXTERNAL DATA DISK --->
-resource "aws_ebs_volume" "demo_ebs_volume" {  
-  # <--- HAS TO BE ON THE SAME AVAILABILITY ZONE AS aws_network_interface.subnet_id --->
-  availability_zone = aws_instance.ec2_instance.availability_zone
-  size = 4 
-  encrypted = false
-  type = "gp2"
-  tags = merge(
-    var.mandatory_tags,
-    {
-      Name = "${var.name}-${random_string.random.result}-data-ebs-${var.mandatory_tags.Environment}"	
-    }      
-  )  
+resource "aws_autoscaling_policy" "cpu_scaling_policy" {
+  name                      = "${var.name}-cpu-scaling-policy-${var.mandatory_tags.Environment}"
+  policy_type               = "TargetTrackingScaling"
+  estimated_instance_warmup = 20
+  autoscaling_group_name    = aws_autoscaling_group.app_asg.name
 
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+
+    target_value = 60
+  }
 }
 
-resource "aws_volume_attachment" "demo_ebs_volume_attachment" {
-  device_name = "/dev/sdh"
-  volume_id = aws_ebs_volume.demo_ebs_volume.id
-  instance_id = aws_instance.ec2_instance.id 
+
+resource "aws_autoscaling_attachment" "app_asg_attachment" {
+  autoscaling_group_name = aws_autoscaling_group.app_asg.name
+  lb_target_group_arn    = aws_alb_target_group.alb_tg.arn
 }
-*/

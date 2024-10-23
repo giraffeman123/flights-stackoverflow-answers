@@ -11,41 +11,46 @@ npm -v
 
 #we clone api repository and install project dependencies 
 cd /home/ubuntu/
-git clone https://github.com/giraffeman123/merge-sort-api.git
-cd merge-sort-api/
+git clone https://github.com/giraffeman123/tech-interview-xaldigital.git
+cd tech-interview-xaldigital/api/
 sudo npm install --production
 
 #create directory for app logs
-sudo mkdir /var/log/merge-sort-app
+sudo mkdir /var/log/fsa-api
 
 #we add the api as a service unit in systemd service manager 
-cat > /home/ubuntu/merge-sort-app.service <<EOF
+cat > /home/ubuntu/fsa-api.service <<EOF
 [Unit]
-Description=Simple NodeJs App with merge-sort algorithm and other endpoints for testing
+Description=API that gets latest flight in simulated airline and also gets information about stack overflow site answers
 After=network.target
 [Service]
-ExecStart=/usr/bin/node /home/ubuntu/merge-sort-api/index.js
-WorkingDirectory=/home/ubuntu/merge-sort-api
+ExecStart=/usr/bin/node /home/ubuntu/tech-interview-xaldigital/api/index.js
+WorkingDirectory=/home/ubuntu/tech-interview-xaldigital/api
 Restart=always
 User=ubuntu
-Environment=PATH=/usr/bin:/usr/local/bin
-Environment=NODE_ENV=production
-Environment=PORT=${app_port}
-StandardOutput=file:/var/log/merge-sort-app/logs.log
-StandardError=file:/var/log/merge-sort-app/logs.log
+Environment="PATH=/usr/bin:/usr/local/bin"
+Environment="NODE_ENV=production"
+Environment="PORT=${app_port}"
+Environment="DB_HOST=${db_host}"
+Environment="DB_USER=${db_user}"
+Environment="DB_PWD=${db_pwd}"
+Environment="DB_NAME=${db_name}"
+Environment="ANSWER_ENDPOINT=${answer_endpoint}"
+StandardOutput=file:/var/log/fsa-api/logs.log
+StandardError=file:/var/log/fsa-api/logs.log
 [Install]
 WantedBy=multi-user.target
 EOF
 
-sudo mv /home/ubuntu/merge-sort-app.service /etc/systemd/system/
+sudo mv /home/ubuntu/fsa-api.service /etc/systemd/system/
 
 #create link to nodejs executable
 sudo ln -s "$(which node)" /usr/bin/node
 
 #we enable the service, start it and check status
-sudo systemctl enable merge-sort-app
-sudo systemctl start merge-sort-app
-sudo systemctl status merge-sort-app
+sudo systemctl enable fsa-api
+sudo systemctl start fsa-api
+sudo systemctl status fsa-api
 
 #install, configure and start cloudwatch agent
 mkdir /tmp/cloudwatch-logs && cd /tmp/cloudwatch-logs

@@ -8,14 +8,27 @@ variable "app_port" {
   type = number
 }
 
+variable "fsa_api_base_url" {
+  type = string
+}
+
+variable "health_check_path" {
+  type = string
+}
+
 variable "vpc_id" {
   type    = string
   default = ""
 }
 
-variable "subnet_id" {
-  type    = string
-  default = ""
+variable "private_subnets_ids" {
+  type    = list(string)
+  default = [""]
+}
+
+variable "public_subnets_ids" {
+  type    = list(string)
+  default = [""]
 }
 
 variable "ec2_instance_type" {
@@ -27,12 +40,3 @@ variable "ec2_key_name" {
   type = string
 }
 
-variable "ec2_sg_ingress_rules" {
-  type = map(object({
-    description = string
-    from_port   = number
-    to_port     = number
-    protocol    = string
-    cidr_blocks = list(string)
-  }))
-}
