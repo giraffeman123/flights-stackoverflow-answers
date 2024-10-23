@@ -4,9 +4,11 @@
 sudo apt-get update
 
 #nodejs & npm installation
+curl -fsSL https://deb.nodesource.com/setup_20.x -o nodesource_setup.sh
+sudo -E bash nodesource_setup.sh
 sudo apt-get -y install nodejs
 node -v
-sudo apt-get -y install npm
+#sudo apt-get -y install npm
 npm -v
 
 #we clone api repository and install project dependencies 
