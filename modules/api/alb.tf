@@ -5,19 +5,11 @@ resource "aws_security_group" "alb_sg" {
   description = "Security Group for ALB targeting ${var.name}-${var.mandatory_tags.Environment}"
 
   ingress {
-    description = "HTTP port"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "HTTPS port"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    description     = "HTTP port"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [var.web_app_sg_id]
   }
 
   # Outbound Rules
@@ -39,10 +31,10 @@ resource "aws_security_group" "alb_sg" {
 
 resource "aws_alb" "alb" {
   name               = "${var.name}-alb-${var.mandatory_tags.Environment}"
-  internal           = false
+  internal           = true
   load_balancer_type = "application"
 
-  subnets         = var.public_subnets_ids
+  subnets         = var.private_subnets_ids
   security_groups = [aws_security_group.alb_sg.id]
 
   tags = merge(

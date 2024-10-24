@@ -3,24 +3,9 @@ variable "aws_region" {
   default = "us-east-2"
 }
 
-variable "aws_access_key" {
-  type    = string
-  default = ""
-}
-
-variable "aws_secret_key" {
-  type    = string
-  default = ""
-}
-
 variable "environment" {
   type    = string
   default = "dev"
-}
-
-variable "application" {
-  type    = string
-  default = "merge-sort"
 }
 
 variable "vpc_id" {
@@ -28,7 +13,22 @@ variable "vpc_id" {
   default = ""
 }
 
-variable "subnet_id" {
-  type    = string
-  default = ""
+variable "main_domain_name" {
+  type = string
+}
+
+variable "static_website_domain" {
+  type = string
+}
+
+variable "db_name" {
+  type = string
+}
+
+variable "db_admin_user" {
+  type = string
+}
+
+variable "db_pwd" {
+  type = string
 }

@@ -73,14 +73,6 @@ resource "aws_security_group" "ec2_sg" {
     security_groups = [aws_security_group.alb_sg.id]
   }
 
-  ingress {
-    description = "SSH port"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -174,11 +166,21 @@ resource "aws_autoscaling_group" "app_asg" {
     ignore_changes = [load_balancers, target_group_arns]
   }
 
-  # tag {
-  #   key                 = "Name"
-  #   value               = "asg-${var.application}-${var.environment}"
-  #   propagate_at_launch = true
-  # }
+  tag {
+    key                 = "Name"
+    value               = "${var.name}-node-${var.mandatory_tags.Environment}-${random_string.random.result}"
+    propagate_at_launch = true
+  }
+
+  dynamic "tag" {
+    for_each = var.mandatory_tags
+
+    content {
+      key                 = tag.key
+      value               = tag.value
+      propagate_at_launch = true
+    }
+  }
 }
 
 resource "aws_autoscaling_policy" "cpu_scaling_policy" {

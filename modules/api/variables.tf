@@ -12,7 +12,7 @@ variable "db_host" {
   type = string
 }
 
-variable "db_user" {
+variable "db_admin_user" {
   type = string
 }
 
@@ -53,6 +53,10 @@ variable "ec2_instance_type" {
 }
 
 variable "ec2_key_name" {
+  type = string
+}
+
+variable "web_app_sg_id" {
   type = string
 }
 

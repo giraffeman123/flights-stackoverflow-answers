@@ -40,3 +40,11 @@ variable "ec2_key_name" {
   type = string
 }
 
+variable "main_domain_name" {
+  type = string
+}
+
+variable "static_website_domain" {
+  type = string
+}
+

@@ -80,13 +80,30 @@ resource "aws_alb_target_group" "alb_tg" {
   )
 }
 
-resource "aws_alb_listener" "alb_listener" {
+resource "aws_alb_listener" "https_listener" {
+  load_balancer_arn = aws_alb.alb.arn
+  port              = 443
+  protocol          = "HTTPS"
+  certificate_arn   = aws_acm_certificate.cert.arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_alb_target_group.alb_tg.arn
+  }
+}
+
+resource "aws_alb_listener" "http_to_https_listener" {
   load_balancer_arn = aws_alb.alb.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
-    target_group_arn = aws_alb_target_group.alb_tg.arn
-    type             = "forward"
+    type = "redirect"
+
+    redirect {
+      port        = 443
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
   }
 }

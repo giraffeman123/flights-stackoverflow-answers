@@ -47,7 +47,7 @@ Environment="CATALINA_HOME=/opt/tomcat"
 Environment="CATALINA_PID=/opt/tomcat/temp/tomcat.pid"
 Environment="CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC"
 Environment="SERVER_PORT=${app_port}"
-Environment="XAL_DIGITAL_API_BASE_URL=${fsa_api_base_url}"
+Environment="XAL_DIGITAL_API_BASE_URL=http://${fsa_api_base_url}"
 
 ExecStart=/opt/tomcat/bin/startup.sh
 ExecStop=/opt/tomcat/bin/shutdown.sh
@@ -71,7 +71,7 @@ export CATALINA_HOME="/opt/tomcat"
 export CATALINA_PID="/opt/tomcat/temp/tomcat.pid"
 export CATALINA_OPTS="-Xms512M -Xmx1024M -server -XX:+UseParallelGC"
 export SERVER_PORT="${app_port}"
-export XAL_DIGITAL_API_BASE_URL="http://localhost"
+export XAL_DIGITAL_API_BASE_URL="http://${fsa_api_base_url}"
 EOF
 
 sudo mv /home/ubuntu/setenv.sh /opt/tomcat/bin
