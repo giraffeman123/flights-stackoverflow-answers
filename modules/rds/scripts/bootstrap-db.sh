@@ -24,4 +24,4 @@ mysql 	--host=${DATABASE_ENDPOINT} \
 		${DATABASE_NAME} \
 		< /home/ubuntu/init.sql
 
-#sudo shutdown now
+sudo shutdown now

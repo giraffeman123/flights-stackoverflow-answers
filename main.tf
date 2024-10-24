@@ -28,7 +28,7 @@ module "rds" {
   source              = "./modules/rds"
   mandatory_tags      = module.tags.mandatory_tags
   vpc_id              = module.vpc.vpc_id
-  private_subnets_ids = module.vpc.public_subnets_ids
+  private_subnets_ids = module.vpc.private_subnets_ids
   db_name             = var.db_name
   db_admin_user       = var.db_admin_user
   db_pwd              = var.db_pwd
