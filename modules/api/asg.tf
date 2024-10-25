@@ -141,7 +141,7 @@ resource "aws_launch_template" "app_lt" {
   }
 
   network_interfaces {
-    associate_public_ip_address = true
+    associate_public_ip_address = false
     security_groups             = [aws_security_group.ec2_sg.id]
   }
 
